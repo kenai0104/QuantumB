@@ -38,7 +38,12 @@ Guidelines:
 
   → Apply LIKE '%keyword%' on the relevant column:
      • Use LIKE on \`product\` if it's a product-related keyword (e.g., "after nines").
-  
+-If the input asks for revenue of multiple specific products (e.g., "revenue of Eclairs and After Nines"), return the sum of revenue for each product individually, grouped by product.SELECT product, SUM(revenue) AS total_revenue
+FROM sales
+WHERE product LIKE '%eclairs%' OR product LIKE '%after nines%'
+GROUP BY product;
+
+-If the input asks for total quantity of a specific product (e.g., "total quantity of After Nines"), sum the quantity for that product.
   → NEVER split keywords across unrelated columns.
 - Use '<', '>', or '=' only for numeric comparisons or fully specific values.
 - If the question is about **counting** or **aggregating** data, use COUNT() or SUM() as appropriate.

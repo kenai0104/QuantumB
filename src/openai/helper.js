@@ -41,9 +41,16 @@ SQL Guidelines:
 - For price-related queries (→ revenue) or stock (→ quantity), include those columns WITH product.
 - Use LIKE '%term%' for fuzzy product name matches (e.g., "after nines").
 - For revenue of multiple products → use SUM(revenue), GROUP BY product.
-- For quantity → use SUM(quantity), WHERE product LIKE '%term%'.
+- For quantity:
+  • If input mentions a product (e.g., "after nines") → use:
+    SELECT SUM(quantity) AS total_quantity FROM chocolate_sales WHERE product LIKE '%term%';
+  • If input asks for stock or quantity without any product → use:
+    SELECT product, SUM(quantity) AS total_quantity FROM chocolate_sales GROUP BY product ORDER BY product;
+- If the question asks for **monthly comparison**, use:
+    SELECT DATE_FORMAT(sale_date, '%Y-%m') AS month, SUM(...) GROUP BY month ORDER BY month
 - Strict: Never add WHERE/AND filters unless explicitly mentioned.
-
+ -To compare two or more products (e.g., Eclairs vs After Nines), use:  
+  WHERE product LIKE '%eclairs%' OR product LIKE '%after nines%' GROUP BY product
 User Question: ${question}`;
 
   const response = await together.chat.completions.create({
@@ -51,23 +58,21 @@ User Question: ${question}`;
     messages: [{ role: "user", content: prompt }],
   });
 
-  let content = response.choices[0].message.content.trim();
+ let content = response.choices[0].message.content.trim();
 
-  // 🧹 Clean markdown (e.g., remove "SQL:", code blocks)
+  // 🧹 Clean up common wrappers like Query:, code blocks, etc.
   content = content
-    .replace(/^sql\s*[:\-]*/i, '')
-    .replace(/^```sql/i, '')
-    .replace(/^```/i, '')
-    .replace(/```$/i, '')
+    .replace(/^.*?(select|with)/is, (_, sqlStart) => sqlStart) // remove leading non-SQL words
+    .replace(/```/g, '')                                       // remove markdown code block
+    .replace(/sql\s*:/i, '')                                   // remove "SQL:" or "sql:"
     .trim();
 
-  // ✅ Check if it's a valid SQL query
-  if (content.toLowerCase().startsWith("select") || content.toLowerCase().startsWith("with")) {
+  if (/^\s*(select|with|insert|update|delete)\b/i.test(content)) {
     return content;
   }
 
-  // 🗣 Return non-SQL response
   return { response: content };
 }
 
 export default generateSQL;
+

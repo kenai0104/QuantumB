@@ -15,26 +15,19 @@ router.post("/ask", async (req, res) => {
   }
 
   try {
-    const sqlQuery = await generateSQL(question);
-    console.log("Generated SQL Query:", sqlQuery);
+    const sqlOrReply = await generateSQL(question);
+    console.log("Generated SQL Query:", sqlOrReply);
 
-    // Check if question was previously asked
-    // const [rows] = await db.query("SELECT * FROM queries WHERE question = ?", [
-    //   question,
-    // ]);
+     const isSQL = /^\s*(SELECT|INSERT|UPDATE|DELETE)\b/i.test(sqlOrReply.trim());
 
-    // if (rows.length > 0) {
-    //   return res.json({ result: JSON.parse(rows[0].answer) });
-    // }
 
-    // Execute the generated query
-    const [queryResult] = await db.query(sqlQuery);
+    if (!isSQL) {
+      // It's a generic natural language response
+      return res.json({ response: sqlOrReply });
+    }
 
-    // Save the result
-    // await db.query("INSERT INTO queries (question, answer) VALUES (?, ?)", [
-    //   question,
-    //   JSON.stringify(queryResult),
-    // ]);
+    const [queryResult] = await db.query(sqlOrReply);
+
 
     return res.json({ result: queryResult });
   } catch (error) {

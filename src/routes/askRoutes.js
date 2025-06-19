@@ -18,18 +18,15 @@ router.post("/ask", async (req, res) => {
     const sqlOrReply = await generateSQL(question);
     console.log("Generated SQL Query:", sqlOrReply);
 
-     const isSQL = /^\s*(SELECT|INSERT|UPDATE|DELETE)\b/i.test(sqlOrReply.trim());
-
-
-    if (!isSQL) {
-      // It's a generic natural language response
-      return res.json({ response: sqlOrReply });
+    // If it's an object, it's a friendly assistant response
+    if (typeof sqlOrReply === "object" && sqlOrReply.response) {
+      return res.json({ response: sqlOrReply.response });
     }
 
+    // Otherwise, assume it's raw SQL and execute it
     const [queryResult] = await db.query(sqlOrReply);
-
-
     return res.json({ result: queryResult });
+
   } catch (error) {
     console.error("Error processing request:", error);
     return res
@@ -37,5 +34,6 @@ router.post("/ask", async (req, res) => {
       .json({ error: "An error occurred while processing the query." });
   }
 });
+
 
 export default router;

@@ -21,47 +21,53 @@ async function generateSQL(question) {
   const table = data.tables.join(", ");
   const columns = data.columns.join(", ");
 
-const prompt = `You are an expert in SQL and natural language understanding.
-Your job is to generate a clean, efficient SQL query **only if** the user's question is clearly and directly related to the database schema.
-If the user's input is **generic**, **chit-chat**, **personal**, or **not relevant** to the schema (like "hello", "how are you", etc), respond like a helpful assistant and give proper,polite answer based on the question like .
-If the question **is relevant**, output only the SQL query — no explanations, comments, or extra words.
-Schema:
+  const prompt = `You are an expert in SQL and natural language understanding.
+
+Your task is to:
+- Output ONLY a clean and valid SQL query if the user's question is clearly and directly related to the database schema.
+- If the user's input is generic, chit-chat, or unrelated to the database (e.g., "hello", "how are you", "what's up"), respond as a helpful assistant with a short, friendly reply.
+
+⚠️ Important:
+- If the input is SQL-related, return ONLY the SQL query. Do NOT add explanations, markdown code blocks, or any additional text. Just the raw SQL.
+- If the input is not SQL-related, reply naturally as a friendly assistant.
+
+Database Schema:
 Table: ${table}
 Columns: ${columns}
+
 SQL Guidelines:
-- Do **NOT** use SELECT * unless the user says "all details", "everything", or "all data".
-- If the question involves product/item, include those columns **with customer_name**.
-- If the question refers to price (→ revenue) or stock (→ quantity), include those columns **with product**.
-- For unique values:
-  • "countries" → SELECT DISTINCT country
-  • "products" → SELECT DISTINCT product
-- Use LIKE '%term%' for fuzzy matches on product names (e.g., "after nines").
-- For multiple product revenues → SUM(revenue), GROUP BY product.
-- For total quantity of a product → SUM(quantity), WHERE product LIKE '%term%'.
-- **Strict Rule**: Never add WHERE/AND filters unless explicitly mentioned in the question.
-- No assumptions — follow input exactly.
-ONLY output valid SQL if the question clearly maps to the schema. Otherwise, respond as a friendly assistant.
+- Do NOT use SELECT * unless the user says "all details", "everything", or "all data".
+- For questions involving product or item, include those columns WITH customer_name.
+- For price-related queries (→ revenue) or stock (→ quantity), include those columns WITH product.
+- Use LIKE '%term%' for fuzzy product name matches (e.g., "after nines").
+- For revenue of multiple products → use SUM(revenue), GROUP BY product.
+- For quantity → use SUM(quantity), WHERE product LIKE '%term%'.
+- Strict: Never add WHERE/AND filters unless explicitly mentioned.
 
-User Question: ${question}
-`;
-
-
-
-
-
-
-
-
-
-
-  console.log("Prompt:", prompt);
+User Question: ${question}`;
 
   const response = await together.chat.completions.create({
     model: "mistralai/Mistral-7B-Instruct-v0.1",
     messages: [{ role: "user", content: prompt }],
   });
 
-  return response.choices[0].message.content.trim();
+  let content = response.choices[0].message.content.trim();
+
+  // 🧹 Clean markdown (e.g., remove "SQL:", code blocks)
+  content = content
+    .replace(/^sql\s*[:\-]*/i, '')
+    .replace(/^```sql/i, '')
+    .replace(/^```/i, '')
+    .replace(/```$/i, '')
+    .trim();
+
+  // ✅ Check if it's a valid SQL query
+  if (content.toLowerCase().startsWith("select") || content.toLowerCase().startsWith("with")) {
+    return content;
+  }
+
+  // 🗣 Return non-SQL response
+  return { response: content };
 }
 
 export default generateSQL;
